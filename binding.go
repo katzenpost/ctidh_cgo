@@ -4,11 +4,9 @@ package ctidh
 // #include <csidh.h>
 import "C"
 import (
-	"bytes"
 	"crypto/hmac"
-	"encoding/pem"
+	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"unsafe"
 )
 
@@ -77,58 +75,6 @@ func (p *PublicKey) String() string {
 	return Name() + "_PublicKey"
 }
 
-// ToPEM writes out the PublicKey to a PEM block and returns it
-func (p *PublicKey) ToPEM() (*pem.Block, error) {
-	keyType := Name() + " PUBLIC KEY"
-
-	zeros := make([]byte, PublicKeySize)
-	if bytes.Equal(p.Bytes(), zeros) {
-		return nil, fmt.Errorf("%s: attemted to serialize scrubbed key",
-			Name())
-	}
-	blk := &pem.Block{
-		Type:  keyType,
-		Bytes: p.Bytes(),
-	}
-	return blk, nil
-}
-
-// ToPEMFile writes out the PublicKey to a PEM file at path f.
-func (p *PublicKey) ToPEMFile(f string) error {
-	blk, err := p.ToPEM()
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(f, pem.EncodeToMemory(blk), 0600)
-}
-
-// FromPEM reads the PublicKey from a PEM encoded byte slice.
-func (p *PublicKey) FromPEM(pemBytes []byte) error {
-	keyType := Name() + " PUBLIC KEY"
-
-	blk, _ := pem.Decode(pemBytes)
-	if blk == nil {
-		return fmt.Errorf("%s: failed to decode PEM", Name())
-	}
-	if blk.Type != keyType {
-		return ErrPEMKeyTypeMismatch(blk.Type, keyType)
-	}
-	return p.FromBytes(blk.Bytes)
-}
-
-// FromPEMFile reads the PublicKey from a PEM file at path f.
-func (p *PublicKey) FromPEMFile(f string) error {
-	buf, err := ioutil.ReadFile(f)
-	if err != nil {
-		return err
-	}
-	err = p.FromPEM(buf)
-	if err != nil {
-		return fmt.Errorf("%s in file %s", err.Error(), f)
-	}
-	return nil
-}
-
 // Reset resets the PublicKey to all zeros.
 func (p *PublicKey) Reset() {
 	zeros := make([]byte, PublicKeySize)
@@ -176,6 +122,34 @@ func (p *PublicKey) Blind(blindingFactor []byte) error {
 	}
 	p.publicKey = blinded.publicKey
 	return nil
+}
+
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PublicKey) MarshalBinary() ([]byte, error) {
+	return p.Bytes(), nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PublicKey) UnmarshalBinary(data []byte) error {
+	return p.FromBytes(data)
+}
+
+// MarshalText is an implementation of a method on the
+// TextMarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PublicKey) MarshalText() ([]byte, error) {
+	return []byte(base64.StdEncoding.EncodeToString(p.Bytes())), nil
+}
+
+// UnmarshalText is an implementation of a method on the
+// TextUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PublicKey) UnmarshalText(data []byte) error {
+	raw, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return p.FromBytes(raw)
 }
 
 // PrivateKey is a private CTIDH key.
@@ -231,62 +205,38 @@ func (p *PrivateKey) Equal(privateKey *PrivateKey) bool {
 	return hmac.Equal(p.Bytes(), privateKey.Bytes())
 }
 
-// ToPEM writes out the PrivateKey to a PEM block.
-func (p *PrivateKey) ToPEM() (*pem.Block, error) {
-	keyType := Name() + " PRIVATE KEY"
-
-	zeros := make([]byte, PrivateKeySize)
-	if bytes.Equal(p.Bytes(), zeros) {
-		return nil, fmt.Errorf("%s: attemted to serialize scrubbed key",
-			Name())
-	}
-	blk := &pem.Block{
-		Type:  keyType,
-		Bytes: p.Bytes(),
-	}
-	return blk, nil
-}
-
-// ToPEMFile writes out the PrivateKey to a PEM file at path f.
-func (p *PrivateKey) ToPEMFile(f string) error {
-	blk, err := p.ToPEM()
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(f, pem.EncodeToMemory(blk), 0600)
-}
-
-// FromPEM reads the PrivateKey from a PEM byte slice.
-func (p *PrivateKey) FromPEM(pemBytes []byte) error {
-	keyType := Name() + " PRIVATE KEY"
-
-	blk, _ := pem.Decode(pemBytes)
-	if blk == nil {
-		return fmt.Errorf("%s: failed to decode PEM bytes", Name())
-	}
-	if blk.Type != keyType {
-		return ErrPEMKeyTypeMismatch(blk.Type, keyType)
-	}
-	return p.FromBytes(blk.Bytes)
-}
-
-// FromPEMFile reads the PrivateKey from a PEM file at path f.
-func (p *PrivateKey) FromPEMFile(f string) error {
-	buf, err := ioutil.ReadFile(f)
-	if err != nil {
-		return err
-	}
-	err = p.FromPEM(buf)
-	if err != nil {
-		return fmt.Errorf("%s in file %s", err.Error(), f)
-	}
-	return nil
-}
-
 // PublicKey returns the public key associated
 // with the given private key.
 func (p *PrivateKey) PublicKey() *PublicKey {
 	return DerivePublicKey(p)
+}
+
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PrivateKey) MarshalBinary() ([]byte, error) {
+	return p.Bytes(), nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PrivateKey) UnmarshalBinary(data []byte) error {
+	return p.FromBytes(data)
+}
+
+// MarshalText is an implementation of a method on the
+// TextMarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PrivateKey) MarshalText() ([]byte, error) {
+	return []byte(base64.StdEncoding.EncodeToString(p.Bytes())), nil
+}
+
+// UnmarshalText is an implementation of a method on the
+// TextUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (p *PrivateKey) UnmarshalText(data []byte) error {
+	raw, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return p.FromBytes(raw)
 }
 
 // DerivePublicKey derives a public key given a private key.

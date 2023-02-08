@@ -205,9 +205,9 @@ func (p *PrivateKey) Equal(privateKey *PrivateKey) bool {
 	return hmac.Equal(p.Bytes(), privateKey.Bytes())
 }
 
-// PublicKey returns the public key associated
+// Public returns the public key associated
 // with the given private key.
-func (p *PrivateKey) PublicKey() *PublicKey {
+func (p *PrivateKey) Public() *PublicKey {
 	return DerivePublicKey(p)
 }
 

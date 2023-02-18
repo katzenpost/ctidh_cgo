@@ -24,12 +24,13 @@ git clone https://codeberg.org/io/highctidh.git
 Step 2
 ------
 
-Build the CTIDH C shared library files:
+Build the CTIDH C shared library files, portable:
 
 ```
 cd highctidh
 make libhighctidh_511.so libhighctidh_512.so libhighctidh_1024.so libhighctidh_2048.so
 sudo make install
+
 cd ..
 ```
 

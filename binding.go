@@ -290,9 +290,10 @@ func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t
 		panic("rng fail")
 	}
 	p := uintptr(outptr)
-	for i := 0; i < int(outsz); i++ {
+	for i := 0; i < int(outsz); {
 		(*(*uint32)(unsafe.Pointer(p))) = uint32(buf[i])
 		p += 4
+		i += 4
 	}
 }
 

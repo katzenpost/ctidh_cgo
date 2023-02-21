@@ -10,12 +10,10 @@ import (
 func TestSimpleBlindingOperation(t *testing.T) {
 	_, alicePublic := GenerateKeyPair()
 
-	blindingFactor := make([]byte, PrivateKeySize)
-	_, err := rand.Read(blindingFactor)
-	require.NoError(t, err)
+	blindingFactor := GeneratePrivateKey(rand.Reader)
 
 	oldKey := alicePublic.Bytes()
-	err = alicePublic.Blind(blindingFactor)
+	err := alicePublic.Blind(blindingFactor)
 	require.NoError(t, err)
 	newKey := alicePublic.Bytes()
 
@@ -27,10 +25,7 @@ func TestBlindingOperation(t *testing.T) {
 	mixPrivateKey, mixPublicKey := GenerateKeyPair()
 	clientPrivateKey, clientPublicKey := GenerateKeyPair()
 
-	blindingFactor := make([]byte, PrivateKeySize)
-	_, err := rand.Read(blindingFactor)
-	require.NoError(t, err)
-
+	blindingFactor := GeneratePrivateKey(rand.Reader)
 	value1, err := Blind(blindingFactor, NewPublicKey(DeriveSecret(clientPrivateKey, mixPublicKey)))
 	require.NoError(t, err)
 	blinded, err := Blind(blindingFactor, clientPublicKey)

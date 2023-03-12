@@ -1,10 +1,18 @@
 package ctidh
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestGenerateKeyPairWithRNG(t *testing.T) {
+	privateKey, publicKey := GenerateKeyPairWithRNG(rand.Reader)
+	zeros := make([]byte, PublicKeySize)
+	require.NotEqual(t, privateKey.Bytes(), zeros)
+	require.NotEqual(t, publicKey.Bytes(), zeros)
+}
 
 func TestPublicKeyReset(t *testing.T) {
 	zeros := make([]byte, PublicKeySize)

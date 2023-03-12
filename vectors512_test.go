@@ -24,7 +24,7 @@ func Test512BitVectorBlindingOperation(t *testing.T) {
 
 	publicKey.Blind(blindingFactor)
 
-	blindingOutputHex := "a34b8ccd7b4f97859f1a0d2962b31a083d363a7d671340471516bd36f58def0b0203f44af2a799028a17a8856e18a7b603190e1a63adc215c0ae53d21c45761c"
+	blindingOutputHex := "0409ec2c09ff367fb5bb6534208f2070af6ed42af6b2de20099bebdeecaa4d9e208d24ece3c78e6e3eafc14d9240b9689c391962e9cb10f44db188e8e5a3d960"
 	blindingOutputBytes, err := hex.DecodeString(blindingOutputHex)
 	require.NoError(t, err)
 

@@ -1,13 +1,34 @@
 package ctidh
 
-// #include "binding.h"
-// #include <csidh.h>
+/*
+#include "binding.h"
+#include <csidh.h>
+
+extern ctidh_fillrandom fillrandom_custom;
+
+__attribute__((weak))
+void custom_gen_private(void *const context, private_key *priv) {
+  csidh_private_withrng(priv, (uintptr_t)context, fillrandom_custom);
+}
+
+__attribute__((weak))
+void fillrandom_custom(
+  void *const outptr,
+  const size_t outsz,
+  const uintptr_t context)
+{
+  go_fillrandom(context, outptr, outsz);
+}
+*/
 import "C"
 import (
 	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"unsafe"
+
+	gopointer "github.com/mattn/go-pointer"
 )
 
 var (
@@ -111,11 +132,7 @@ func (p *PublicKey) Equal(publicKey *PublicKey) bool {
 // Blind performs a blinding operation
 // and mutates the public key.
 // See notes below about blinding operation with CTIDH.
-func (p *PublicKey) Blind(blindingFactor []byte) error {
-	if len(blindingFactor) != PrivateKeySize {
-		return ErrBlindDataSizeInvalid
-	}
-	var err error
+func (p *PublicKey) Blind(blindingFactor *PrivateKey) error {
 	blinded, err := Blind(blindingFactor, p)
 	if err != nil {
 		panic(err)
@@ -255,6 +272,42 @@ func GenerateKeyPair() (*PrivateKey, *PublicKey) {
 	return privKey, DerivePublicKey(privKey)
 }
 
+//export go_fillrandom
+func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t) {
+	rng := gopointer.Restore(context).(io.Reader)
+	buf := make([]byte, outsz)
+	count, err := rng.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+	if count != int(outsz) {
+		panic("rng fail")
+	}
+	p := uintptr(outptr)
+	for i := 0; i < int(outsz); {
+		(*(*uint32)(unsafe.Pointer(p))) = uint32(buf[i])
+		p += 4
+		i += 4
+	}
+}
+
+// GeneratePrivateKey uses the given RNG to derive a new private key.
+// This can be used to deterministically generate private keys if the
+// entropy source is deterministic, for example an HKDF.
+func GeneratePrivateKey(rng io.Reader) *PrivateKey {
+	privKey := &PrivateKey{}
+	p := gopointer.Save(rng)
+	C.custom_gen_private(p, &privKey.privateKey)
+	gopointer.Unref(p)
+	return privKey
+}
+
+// GenerateKeyPairWithRNG uses the given RNG to derive a new keypair.
+func GenerateKeyPairWithRNG(rng io.Reader) (*PrivateKey, *PublicKey) {
+	privKey := GeneratePrivateKey(rng)
+	return privKey, DerivePublicKey(privKey)
+}
+
 func groupAction(privateKey *PrivateKey, publicKey *PublicKey) *PublicKey {
 	sharedKey := new(PublicKey)
 	ok := C.csidh(&sharedKey.publicKey, &publicKey.publicKey, &privateKey.privateKey)
@@ -271,25 +324,8 @@ func DeriveSecret(privateKey *PrivateKey, publicKey *PublicKey) []byte {
 }
 
 // Blind performs a blinding operation returning the blinded public key.
-//
-// WARNING:
-// Currently this blinding operation is not performed correctly
-// because the blindingFactor is not a valid CTIDH private key.
-// In order to fix this we need to be able to use the blinding
-// factor as a seed for deterministically generating the CTIDH private key
-// which participates in the group action operation.
-// This will require a change to the high-ctidh library.
-func Blind(blindingFactor []byte, publicKey *PublicKey) (*PublicKey, error) {
-	if len(blindingFactor) != PrivateKeySize {
-		return nil, ErrBlindDataSizeInvalid
-	}
-
-	privKey := new(PrivateKey)
-	err := privKey.FromBytes(blindingFactor)
-	if err != nil {
-		return nil, err
-	}
-	return groupAction(privKey, publicKey), nil
+func Blind(blindingFactor *PrivateKey, publicKey *PublicKey) (*PublicKey, error) {
+	return groupAction(blindingFactor, publicKey), nil
 }
 
 // Name returns the string naming of the current

@@ -1,7 +1,52 @@
+package main
+
+import (
+	"flag"
+	"io"
+	"os"
+	"os/exec"
+	"text/template"
+
+	"github.com/joncalhoun/pipe"
+)
+
+type data struct {
+	Type string
+	Name string
+	Bits int
+}
+
+func main() {
+	var d data
+	flag.IntVar(&d.Bits, "bits", 1024, "number of bits")
+	flag.StringVar(&d.Type, "type", "", "The subtype used for the queue being generated")
+	flag.StringVar(&d.Name, "name", "", "The name used for the queue being generated. This should start with a capital letter so that it is exported.")
+	flag.Parse()
+
+	// Create our template + other commands we want to run
+	t := template.Must(template.New("queue").Parse(queueTemplate))
+	rc, wc, errCh := pipe.Commands(
+		exec.Command("gofmt"),
+		exec.Command("goimports"),
+	)
+	go func() {
+		select {
+		case err, ok := <-errCh:
+			if ok && err != nil {
+				panic(err)
+			}
+		}
+	}()
+	t.Execute(wc, d)
+	wc.Close()
+	io.Copy(os.Stdout, rc)
+}
+
+var queueTemplate = `
 package ctidh
 
 /*
-#include "binding.h"
+#include "binding{{.Bits}}.h"
 #include <csidh.h>
 
 extern ctidh_fillrandom fillrandom_custom;
@@ -32,57 +77,31 @@ import (
 )
 
 var (
-	// PublicKeySize is the size in bytes of the public key.
-	PublicKeySize int
+	// {{.Name}}PublicKeySize is the size in bytes of the public key.
+	{{.Name}}PublicKeySize int
 
-	// PrivateKeySize is the size in bytes of the private key.
-	PrivateKeySize int
-
-	// ErrBlindDataSizeInvalid indicates that the blinding data size was invalid.
-	ErrBlindDataSizeInvalid error = fmt.Errorf("%s: blinding data size invalid", Name())
-
-	// ErrPublicKeyValidation indicates a public key validation failure.
-	ErrPublicKeyValidation error = fmt.Errorf("%s: public key validation failure", Name())
-
-	// ErrPublicKeySize indicates the raw data is not the correct size for a public key.
-	ErrPublicKeySize error = fmt.Errorf("%s: raw public key data size is wrong", Name())
-
-	// ErrPrivateKeySize indicates the raw data is not the correct size for a private key.
-	ErrPrivateKeySize error = fmt.Errorf("%s: raw private key data size is wrong", Name())
-
-	// ErrCTIDH indicates a group action failure.
-	ErrCTIDH error = fmt.Errorf("%s: group action failure", Name())
+	// {{.Name}}PrivateKeySize is the size in bytes of the private key.
+	{{.Name}}PrivateKeySize int
 )
 
-// ErrPEMKeyTypeMismatch returns an error indicating that we tried
-// to decode a PEM file containing a differing key type than the one
-// we expected.
-func ErrPEMKeyTypeMismatch(gotType, wantType string) error {
-	return fmt.Errorf("%s: Attempted to decode a PEM bytes of type %s"+
-		" which differs from the type we want %s",
-		Name(),
-		gotType,
-		wantType)
-}
-
-// PublicKey is a public CTIDH key.
-type PublicKey struct {
+// {{.Name}}PublicKey is a public CTIDH key.
+type {{.Name}}PublicKey struct {
 	publicKey C.public_key
 }
 
-// NewEmptyPublicKey returns an uninitialized
-// PublicKey which is suitable to be loaded
+// NewEmpty{{.Name}}PublicKey returns an uninitialized
+// {{.Name}}PublicKey which is suitable to be loaded
 // via some serialization format via FromBytes
 // or FromPEMFile methods.
-func NewEmptyPublicKey() *PublicKey {
-	return new(PublicKey)
+func NewEmpty{{.Name}}PublicKey() *{{.Name}}PublicKey {
+	return new({{.Name}}PublicKey)
 }
 
-// NewPublicKey creates a new public key from
+// New{{.Name}}PublicKey creates a new public key from
 // the given key material or panics if the
-// key data is not PublicKeySize.
-func NewPublicKey(key []byte) *PublicKey {
-	k := new(PublicKey)
+// key data is not {{.Name}}PublicKeySize.
+func New{{.Name}}PublicKey(key []byte) *{{.Name}}PublicKey {
+	k := new({{.Name}}PublicKey)
 	err := k.FromBytes(key)
 	if err != nil {
 		panic(err)
@@ -92,27 +111,27 @@ func NewPublicKey(key []byte) *PublicKey {
 
 // String returns a string identifying
 // this type as a CTIDH public key.
-func (p *PublicKey) String() string {
-	return Name() + "_PublicKey"
+func (p *{{.Name}}PublicKey) String() string {
+	return "{{.Name}}_PublicKey"
 }
 
-// Reset resets the PublicKey to all zeros.
-func (p *PublicKey) Reset() {
-	zeros := make([]byte, PublicKeySize)
+// Reset resets the {{.Name}}PublicKey to all zeros.
+func (p *{{.Name}}PublicKey) Reset() {
+	zeros := make([]byte, {{.Name}}PublicKeySize)
 	err := p.FromBytes(zeros)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// Bytes returns the PublicKey as a byte slice.
-func (p *PublicKey) Bytes() []byte {
+// Bytes returns the {{.Name}}PublicKey as a byte slice.
+func (p *{{.Name}}PublicKey) Bytes() []byte {
 	return C.GoBytes(unsafe.Pointer(&p.publicKey.A.x.c), C.int(C.UINTBIG_LIMBS*8))
 }
 
-// FromBytes loads a PublicKey from the given byte slice.
-func (p *PublicKey) FromBytes(data []byte) error {
-	if len(data) != PublicKeySize {
+// FromBytes loads a {{.Name}}PublicKey from the given byte slice.
+func (p *{{.Name}}PublicKey) FromBytes(data []byte) error {
+	if len(data) != {{.Name}}PublicKeySize {
 		return ErrPublicKeySize
 	}
 
@@ -125,14 +144,14 @@ func (p *PublicKey) FromBytes(data []byte) error {
 }
 
 // Equal is a constant time comparison of the two public keys.
-func (p *PublicKey) Equal(publicKey *PublicKey) bool {
+func (p *{{.Name}}PublicKey) Equal(publicKey *{{.Name}}PublicKey) bool {
 	return hmac.Equal(p.Bytes(), publicKey.Bytes())
 }
 
 // Blind performs a blinding operation
 // and mutates the public key.
 // See notes below about blinding operation with CTIDH.
-func (p *PublicKey) Blind(blindingFactor *PrivateKey) error {
+func (p *{{.Name}}PublicKey) Blind(blindingFactor *{{.Name}}PrivateKey) error {
 	blinded, err := Blind(blindingFactor, p)
 	if err != nil {
 		panic(err)
@@ -143,25 +162,25 @@ func (p *PublicKey) Blind(blindingFactor *PrivateKey) error {
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PublicKey) MarshalBinary() ([]byte, error) {
+func (p *{{.Name}}PublicKey) MarshalBinary() ([]byte, error) {
 	return p.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PublicKey) UnmarshalBinary(data []byte) error {
+func (p *{{.Name}}PublicKey) UnmarshalBinary(data []byte) error {
 	return p.FromBytes(data)
 }
 
 // MarshalText is an implementation of a method on the
 // TextMarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PublicKey) MarshalText() ([]byte, error) {
+func (p *{{.Name}}PublicKey) MarshalText() ([]byte, error) {
 	return []byte(base64.StdEncoding.EncodeToString(p.Bytes())), nil
 }
 
 // UnmarshalText is an implementation of a method on the
 // TextUnmarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PublicKey) UnmarshalText(data []byte) error {
+func (p *{{.Name}}PublicKey) UnmarshalText(data []byte) error {
 	raw, err := base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
 		return err
@@ -169,47 +188,47 @@ func (p *PublicKey) UnmarshalText(data []byte) error {
 	return p.FromBytes(raw)
 }
 
-// PrivateKey is a private CTIDH key.
-type PrivateKey struct {
+// {{.Name}}PrivateKey is a private CTIDH key.
+type {{.Name}}PrivateKey struct {
 	privateKey C.private_key
 }
 
-// NewEmptyPrivateKey returns an uninitialized
-// PrivateKey which is suitable to be loaded
+// NewEmpty{{.Name}}PrivateKey returns an uninitialized
+// {{.Name}}PrivateKey which is suitable to be loaded
 // via some serialization format via FromBytes
 // or FromPEMFile methods.
-func NewEmptyPrivateKey() *PrivateKey {
-	return new(PrivateKey)
+func NewEmpty{{.Name}}PrivateKey() *{{.Name}}PrivateKey {
+	return new({{.Name}}PrivateKey)
 }
 
 // DeriveSecret derives a shared secret.
-func (p *PrivateKey) DeriveSecret(publicKey *PublicKey) []byte {
+func (p *{{.Name}}PrivateKey) DeriveSecret(publicKey *{{.Name}}PublicKey) []byte {
 	return DeriveSecret(p, publicKey)
 }
 
 // String returns a string identifying
 // this type as a CTIDH private key.
-func (p *PrivateKey) String() string {
-	return Name() + "_PrivateKey"
+func (p *{{.Name}}PrivateKey) String() string {
+	return "{{.Name}}_PrivateKey"
 }
 
-// Reset resets the PrivateKey to all zeros.
-func (p *PrivateKey) Reset() {
-	zeros := make([]byte, PrivateKeySize)
+// Reset resets the {{.Name}}PrivateKey to all zeros.
+func (p *{{.Name}}PrivateKey) Reset() {
+	zeros := make([]byte, {{.Name}}PrivateKeySize)
 	err := p.FromBytes(zeros)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// Bytes serializes PrivateKey into a byte slice.
-func (p *PrivateKey) Bytes() []byte {
+// Bytes serializes {{.Name}}PrivateKey into a byte slice.
+func (p *{{.Name}}PrivateKey) Bytes() []byte {
 	return C.GoBytes(unsafe.Pointer(&p.privateKey), C.primes_num)
 }
 
-// FromBytes loads a PrivateKey from the given byte slice.
-func (p *PrivateKey) FromBytes(data []byte) error {
-	if len(data) != PrivateKeySize {
+// FromBytes loads a {{.Name}}PrivateKey from the given byte slice.
+func (p *{{.Name}}PrivateKey) FromBytes(data []byte) error {
+	if len(data) != {{.Name}}PrivateKeySize {
 		return ErrPrivateKeySize
 	}
 
@@ -218,37 +237,37 @@ func (p *PrivateKey) FromBytes(data []byte) error {
 }
 
 // Equal is a constant time comparison of the two private keys.
-func (p *PrivateKey) Equal(privateKey *PrivateKey) bool {
+func (p *{{.Name}}PrivateKey) Equal(privateKey *{{.Name}}PrivateKey) bool {
 	return hmac.Equal(p.Bytes(), privateKey.Bytes())
 }
 
 // Public returns the public key associated
 // with the given private key.
-func (p *PrivateKey) Public() *PublicKey {
-	return DerivePublicKey(p)
+func (p *{{.Name}}PrivateKey) Public() *{{.Name}}PublicKey {
+	return Derive{{.Name}}PublicKey(p)
 }
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PrivateKey) MarshalBinary() ([]byte, error) {
+func (p *{{.Name}}PrivateKey) MarshalBinary() ([]byte, error) {
 	return p.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PrivateKey) UnmarshalBinary(data []byte) error {
+func (p *{{.Name}}PrivateKey) UnmarshalBinary(data []byte) error {
 	return p.FromBytes(data)
 }
 
 // MarshalText is an implementation of a method on the
 // TextMarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PrivateKey) MarshalText() ([]byte, error) {
+func (p *{{.Name}}PrivateKey) MarshalText() ([]byte, error) {
 	return []byte(base64.StdEncoding.EncodeToString(p.Bytes())), nil
 }
 
 // UnmarshalText is an implementation of a method on the
 // TextUnmarshaler interface defined in https://golang.org/pkg/encoding/
-func (p *PrivateKey) UnmarshalText(data []byte) error {
+func (p *{{.Name}}PrivateKey) UnmarshalText(data []byte) error {
 	raw, err := base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
 		return err
@@ -256,20 +275,20 @@ func (p *PrivateKey) UnmarshalText(data []byte) error {
 	return p.FromBytes(raw)
 }
 
-// DerivePublicKey derives a public key given a private key.
-func DerivePublicKey(privKey *PrivateKey) *PublicKey {
+// Derive{{.Name}}PublicKey derives a public key given a private key.
+func Derive{{.Name}}PublicKey(privKey *{{.Name}}PrivateKey) *{{.Name}}PublicKey {
 	var base C.public_key
-	baseKey := new(PublicKey)
+	baseKey := new({{.Name}}PublicKey)
 	baseKey.publicKey = base
 	return groupAction(privKey, baseKey)
 }
 
 // GenerateKeyPair generates a new private and then
 // attempts to compute the public key.
-func GenerateKeyPair() (*PrivateKey, *PublicKey) {
-	privKey := new(PrivateKey)
+func GenerateKeyPair() (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
+	privKey := new({{.Name}}PrivateKey)
 	C.csidh_private(&privKey.privateKey)
-	return privKey, DerivePublicKey(privKey)
+	return privKey, Derive{{.Name}}PublicKey(privKey)
 }
 
 //export go_fillrandom
@@ -291,11 +310,11 @@ func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t
 	}
 }
 
-// GeneratePrivateKey uses the given RNG to derive a new private key.
+// Generate{{.Name}}PrivateKey uses the given RNG to derive a new private key.
 // This can be used to deterministically generate private keys if the
 // entropy source is deterministic, for example an HKDF.
-func GeneratePrivateKey(rng io.Reader) *PrivateKey {
-	privKey := &PrivateKey{}
+func Generate{{.Name}}PrivateKey(rng io.Reader) *{{.Name}}PrivateKey {
+	privKey := &{{.Name}}PrivateKey{}
 	p := gopointer.Save(rng)
 	C.custom_gen_private(p, &privKey.privateKey)
 	gopointer.Unref(p)
@@ -303,13 +322,13 @@ func GeneratePrivateKey(rng io.Reader) *PrivateKey {
 }
 
 // GenerateKeyPairWithRNG uses the given RNG to derive a new keypair.
-func GenerateKeyPairWithRNG(rng io.Reader) (*PrivateKey, *PublicKey) {
-	privKey := GeneratePrivateKey(rng)
-	return privKey, DerivePublicKey(privKey)
+func GenerateKeyPairWithRNG(rng io.Reader) (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
+	privKey := Generate{{.Name}}PrivateKey(rng)
+	return privKey, Derive{{.Name}}PublicKey(privKey)
 }
 
-func groupAction(privateKey *PrivateKey, publicKey *PublicKey) *PublicKey {
-	sharedKey := new(PublicKey)
+func groupAction(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) *{{.Name}}PublicKey {
+	sharedKey := new({{.Name}}PublicKey)
 	ok := C.csidh(&sharedKey.publicKey, &publicKey.publicKey, &privateKey.privateKey)
 	if !ok {
 		panic(ErrCTIDH)
@@ -318,13 +337,13 @@ func groupAction(privateKey *PrivateKey, publicKey *PublicKey) *PublicKey {
 }
 
 // DeriveSecret derives a shared secret.
-func DeriveSecret(privateKey *PrivateKey, publicKey *PublicKey) []byte {
+func DeriveSecret(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) []byte {
 	sharedSecret := groupAction(privateKey, publicKey)
 	return sharedSecret.Bytes()
 }
 
 // Blind performs a blinding operation returning the blinded public key.
-func Blind(blindingFactor *PrivateKey, publicKey *PublicKey) (*PublicKey, error) {
+func Blind(blindingFactor *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) (*{{.Name}}PublicKey, error) {
 	return groupAction(blindingFactor, publicKey), nil
 }
 
@@ -338,6 +357,9 @@ func Name() string {
 }
 
 func validateBitSize(bits int) {
+	if C.BITS != {{.Bits}} {
+		panic("CTIDH/cgo: C.BITS must match template Bits")
+	}
 	switch bits {
 	case 511:
 	case 512:
@@ -350,15 +372,17 @@ func validateBitSize(bits int) {
 
 func init() {
 	validateBitSize(C.BITS)
-	PrivateKeySize = C.primes_num
+	{{.Name}}PrivateKeySize = C.primes_num
 	switch C.BITS {
 	case 511:
-		PublicKeySize = 64
+		{{.Name}}PublicKeySize = 64
 	case 512:
-		PublicKeySize = 64
+		{{.Name}}PublicKeySize = 64
 	case 1024:
-		PublicKeySize = 128
+		{{.Name}}PublicKeySize = 128
 	case 2048:
-		PublicKeySize = 256
+		{{.Name}}PublicKeySize = 256
 	}
 }
+
+`

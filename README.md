@@ -50,7 +50,6 @@ and set some environment variables:
 
 ```
 export CTIDH_BITS=1024
-cp ${P}/binding${CTIDH_BITS}.h ${P}/binding.h
 export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
 export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
 ```
@@ -58,6 +57,37 @@ export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTI
 The the header file in place and these environment variables sets you
 should now be able to build your Go application which imports and
 makes use of the CTIDH Golang bindings.
+
+Here's how we generate the bindings for each key size:
+
+```
+// 511
+export CTIDH_BITS=511
+export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
+export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
+go run gen/main.go -name=Ctidh511 -type=ctidh511 -bits=511 > ctidh511.go
+
+// 512
+export CTIDH_BITS=512
+export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
+export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
+go run gen/main.go -name=Ctidh512 -type=ctidh512 -bits=512 > ctidh512.go
+
+// 1024
+export CTIDH_BITS=1024
+export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
+export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
+go run gen/main.go -name=Ctidh1024 -type=ctidh1024 -bits=1024 > ctidh1024.go
+
+// 2048
+export CTIDH_BITS=2048
+export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
+export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
+go run gen/main.go -name=Ctidh2048 -type=ctidh2048 -bits=2048 > ctidh2048.go
+
+```
+
+
 
 
 CTIDH Tests and Benchmarks

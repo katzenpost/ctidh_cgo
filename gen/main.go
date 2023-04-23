@@ -55,15 +55,6 @@ __attribute__((weak))
 void custom_gen_private(void *const context, private_key *priv) {
   csidh_private_withrng(priv, (uintptr_t)context, fillrandom_custom);
 }
-
-__attribute__((weak))
-void fillrandom_custom(
-  void *const outptr,
-  const size_t outsz,
-  const uintptr_t context)
-{
-  go_fillrandom(context, outptr, outsz);
-}
 */
 import "C"
 import (
@@ -152,7 +143,7 @@ func (p *{{.Name}}PublicKey) Equal(publicKey *{{.Name}}PublicKey) bool {
 // and mutates the public key.
 // See notes below about blinding operation with CTIDH.
 func (p *{{.Name}}PublicKey) Blind(blindingFactor *{{.Name}}PrivateKey) error {
-	blinded, err := Blind(blindingFactor, p)
+	blinded, err := Blind{{.Name}}(blindingFactor, p)
 	if err != nil {
 		panic(err)
 	}
@@ -203,7 +194,7 @@ func NewEmpty{{.Name}}PrivateKey() *{{.Name}}PrivateKey {
 
 // DeriveSecret derives a shared secret.
 func (p *{{.Name}}PrivateKey) DeriveSecret(publicKey *{{.Name}}PublicKey) []byte {
-	return DeriveSecret(p, publicKey)
+	return DeriveSecret{{.Name}}(p, publicKey)
 }
 
 // String returns a string identifying
@@ -280,34 +271,15 @@ func Derive{{.Name}}PublicKey(privKey *{{.Name}}PrivateKey) *{{.Name}}PublicKey 
 	var base C.public_key
 	baseKey := new({{.Name}}PublicKey)
 	baseKey.publicKey = base
-	return groupAction(privKey, baseKey)
+	return groupAction{{.Name}}(privKey, baseKey)
 }
 
-// GenerateKeyPair generates a new private and then
-// attempts to compute the public key.
-func GenerateKeyPair() (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
+// Generate{{.Name}}KeyPair generates a new {{.Name}} private and then
+// attempts to compute the {{.Name}} public key.
+func Generate{{.Name}}KeyPair() (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
 	privKey := new({{.Name}}PrivateKey)
 	C.csidh_private(&privKey.privateKey)
 	return privKey, Derive{{.Name}}PublicKey(privKey)
-}
-
-//export go_fillrandom
-func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t) {
-	rng := gopointer.Restore(context).(io.Reader)
-	buf := make([]byte, outsz)
-	count, err := rng.Read(buf)
-	if err != nil {
-		panic(err)
-	}
-	if count != int(outsz) {
-		panic("rng fail")
-	}
-	p := uintptr(outptr)
-	for i := 0; i < int(outsz); {
-		(*(*uint32)(unsafe.Pointer(p))) = uint32(buf[i])
-		p += 4
-		i += 4
-	}
 }
 
 // Generate{{.Name}}PrivateKey uses the given RNG to derive a new private key.
@@ -321,13 +293,13 @@ func Generate{{.Name}}PrivateKey(rng io.Reader) *{{.Name}}PrivateKey {
 	return privKey
 }
 
-// GenerateKeyPairWithRNG uses the given RNG to derive a new keypair.
-func GenerateKeyPairWithRNG(rng io.Reader) (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
+// Generate{{.Name}}KeyPairWithRNG uses the given RNG to derive a new keypair.
+func Generate{{.Name}}KeyPairWithRNG(rng io.Reader) (*{{.Name}}PrivateKey, *{{.Name}}PublicKey) {
 	privKey := Generate{{.Name}}PrivateKey(rng)
 	return privKey, Derive{{.Name}}PublicKey(privKey)
 }
 
-func groupAction(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) *{{.Name}}PublicKey {
+func groupAction{{.Name}}(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) *{{.Name}}PublicKey {
 	sharedKey := new({{.Name}}PublicKey)
 	ok := C.csidh(&sharedKey.publicKey, &publicKey.publicKey, &privateKey.privateKey)
 	if !ok {
@@ -337,40 +309,20 @@ func groupAction(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey)
 }
 
 // DeriveSecret derives a shared secret.
-func DeriveSecret(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) []byte {
-	sharedSecret := groupAction(privateKey, publicKey)
+func DeriveSecret{{.Name}}(privateKey *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) []byte {
+	sharedSecret := groupAction{{.Name}}(privateKey, publicKey)
 	return sharedSecret.Bytes()
 }
 
 // Blind performs a blinding operation returning the blinded public key.
-func Blind(blindingFactor *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) (*{{.Name}}PublicKey, error) {
-	return groupAction(blindingFactor, publicKey), nil
-}
-
-// Name returns the string naming of the current
-// CTIDH that this binding is being used with;
-// Valid values are:
-//
-// CTIDH-511, CTIDH-512, CTIDH-1024 and, CTIDH-2048.
-func Name() string {
-	return fmt.Sprintf("CTIDH-%d", C.BITS)
-}
-
-func validateBitSize(bits int) {
-	if C.BITS != {{.Bits}} {
-		panic("CTIDH/cgo: C.BITS must match template Bits")
-	}
-	switch bits {
-	case 511:
-	case 512:
-	case 1024:
-	case 2048:
-	default:
-		panic("CTIDH/cgo: BITS must be 511 or 512 or 1024 or 2048")
-	}
+func Blind{{.Name}}(blindingFactor *{{.Name}}PrivateKey, publicKey *{{.Name}}PublicKey) (*{{.Name}}PublicKey, error) {
+	return groupAction{{.Name}}(blindingFactor, publicKey), nil
 }
 
 func init() {
+	if C.BITS != {{.Bits}} {
+		panic("CTIDH/cgo: C.BITS must match template Bits")
+	}
 	validateBitSize(C.BITS)
 	{{.Name}}PrivateKeySize = C.primes_num
 	switch C.BITS {

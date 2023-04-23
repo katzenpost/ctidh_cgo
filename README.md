@@ -39,20 +39,6 @@ Step 3
 
 Build your Go application.
 
-Let $P point to the ctidh_cgo directory:
-
-```
-export P=/home/human/code/ctidh_cgo
-```
-
-Copy the binding header file for your desired key size
-and set some environment variables:
-
-```
-export CTIDH_BITS=1024
-export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
-export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
-```
 
 The the header file in place and these environment variables sets you
 should now be able to build your Go application which imports and
@@ -62,29 +48,45 @@ Here's how we generate the bindings for each key size:
 
 ```
 export CTIDH_BITS=511
+go run gen/main.go gen/bench.go gen/tests.go gen/binding.go -name=Ctidh511 -type=ctidh511 -bits=511
+export CTIDH_BITS=512
+go run gen/main.go gen/bench.go gen/tests.go gen/binding.go -name=Ctidh512 -type=ctidh512 -bits=512
+export CTIDH_BITS=1024
+go run gen/main.go gen/bench.go gen/tests.go gen/binding.go -name=Ctidh1024 -type=ctidh1024 -bits=1024
+export CTIDH_BITS=2048
+go run gen/main.go gen/bench.go gen/tests.go gen/binding.go -name=Ctidh2048 -type=ctidh2048 -bits=2048
+
+```
+
+Let $P point to the ctidh_cgo directory:
+
+```
+export P=/home/human/code/ctidh_cgo
+```
+
+Run tests for a particular key size like this:
+
+```
+export CTIDH_BITS=511
 export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
 export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
-go run gen/main.go -name=Ctidh511 -type=ctidh511 -bits=511 > ctidh511.go
+go test -v -tags Ctidh511
 
 export CTIDH_BITS=512
 export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
 export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
-go run gen/main.go -name=Ctidh512 -type=ctidh512 -bits=512 > ctidh512.go
+go test -v -tags Ctidh512
 
 export CTIDH_BITS=1024
 export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
 export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
-go run gen/main.go -name=Ctidh1024 -type=ctidh1024 -bits=1024 > ctidh1024.go
+go test -v -tags Ctidh1024
 
 export CTIDH_BITS=2048
 export CGO_CFLAGS="-w -g -I${P} -I${P}/highctidh -DBITS=${CTIDH_BITS}"
 export CGO_LDFLAGS="-L${P}/highctidh -Wl,-rpath,${P}/highctidh -lhighctidh_${CTIDH_BITS}"
-go run gen/main.go -name=Ctidh2048 -type=ctidh2048 -bits=2048 > ctidh2048.go
-
+go test -v -tags Ctidh2048
 ```
-
-
-
 
 CTIDH Tests and Benchmarks
 ===========================

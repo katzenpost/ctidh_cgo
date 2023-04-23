@@ -1,3 +1,8 @@
+//go:build Ctidh2048
+// +build Ctidh2048
+
+// DO NOT EDIT: generated code, see gen/main.go
+
 package ctidh
 
 /*

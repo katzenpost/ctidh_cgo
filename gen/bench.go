@@ -1,3 +1,9 @@
+package main
+
+var BenchmarkTests = `
+// +build {{.Name}}
+// DO NOT EDIT: generated code, see gen/main.go
+
 package ctidh
 
 import (
@@ -8,16 +14,16 @@ import (
 
 func BenchmarkPublicKeySerializing(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		privKey, publicKey := GenerateKeyPair()
+		privKey, publicKey := Generate{{.Name}}KeyPair()
 
 		publicKeyBytes := publicKey.Bytes()
 
-		publicKey2 := new(PublicKey)
+		publicKey2 := new({{.Name}}PublicKey)
 		err := publicKey2.FromBytes(publicKeyBytes)
 		require.NoError(b, err)
 
 		publicKey2Bytes := publicKey2.Bytes()
-		publicKey3 := DerivePublicKey(privKey)
+		publicKey3 := Derive{{.Name}}PublicKey(privKey)
 		publicKey3Bytes := publicKey3.Bytes()
 
 		require.Equal(b, publicKeyBytes, publicKey2Bytes)
@@ -27,10 +33,10 @@ func BenchmarkPublicKeySerializing(b *testing.B) {
 
 func BenchmarkPrivateKeySerializing(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		privateKey, _ := GenerateKeyPair()
+		privateKey, _ := Generate{{.Name}}KeyPair()
 		privateKeyBytes := privateKey.Bytes()
 
-		privateKey2 := new(PrivateKey)
+		privateKey2 := new({{.Name}}PrivateKey)
 		privateKey2.FromBytes(privateKeyBytes)
 		privateKey2Bytes := privateKey2.Bytes()
 
@@ -40,31 +46,33 @@ func BenchmarkPrivateKeySerializing(b *testing.B) {
 
 func BenchmarkNIKE(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		alicePrivate, alicePublic := GenerateKeyPair()
-		bobPrivate, bobPublic := GenerateKeyPair()
+		alicePrivate, alicePublic := Generate{{.Name}}KeyPair()
+		bobPrivate, bobPublic := Generate{{.Name}}KeyPair()
 
-		bobSharedBytes := DeriveSecret(bobPrivate, alicePublic)
-		aliceSharedBytes := DeriveSecret(alicePrivate, bobPublic)
+		bobSharedBytes := DeriveSecret{{.Name}}(bobPrivate, alicePublic)
+		aliceSharedBytes := DeriveSecret{{.Name}}(alicePrivate, bobPublic)
 
 		require.Equal(b, bobSharedBytes, aliceSharedBytes)
 	}
 }
 
 func BenchmarkDeriveSecret(b *testing.B) {
-	alicePrivate, alicePublic := GenerateKeyPair()
-	bobPrivate, bobPublic := GenerateKeyPair()
+	alicePrivate, alicePublic := Generate{{.Name}}KeyPair()
+	bobPrivate, bobPublic := Generate{{.Name}}KeyPair()
 
 	var aliceSharedBytes []byte
 	for n := 0; n < b.N; n++ {
-		aliceSharedBytes = DeriveSecret(alicePrivate, bobPublic)
+		aliceSharedBytes = DeriveSecret{{.Name}}(alicePrivate, bobPublic)
 	}
 
-	bobSharedBytes := DeriveSecret(bobPrivate, alicePublic)
+	bobSharedBytes := DeriveSecret{{.Name}}(bobPrivate, alicePublic)
 	require.Equal(b, bobSharedBytes, aliceSharedBytes)
 }
 
 func BenchmarkGenerateKeyPair(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		_, _ = GenerateKeyPair()
+		_, _ = Generate{{.Name}}KeyPair()
 	}
 }
+
+`

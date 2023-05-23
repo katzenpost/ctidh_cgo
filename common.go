@@ -20,6 +20,18 @@ import (
 	gopointer "github.com/mattn/go-pointer"
 )
 
+func test_go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz int) {
+	go_fillrandom(context, outptr, C.size_t(outsz))
+}
+
+func test_c_buf(size int) unsafe.Pointer {
+	return C.malloc(C.ulong(size))
+}
+
+func test_GoString(x unsafe.Pointer) string {
+	return *(*string)(x)
+}
+
 //export go_fillrandom
 func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t) {
 	rng := gopointer.Restore(context).(io.Reader)

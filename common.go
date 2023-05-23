@@ -1,6 +1,7 @@
 package ctidh
 
 /*
+#include <stdlib.h>
 #include <stdint.h>
 __attribute__((weak))
 void fillrandom_custom(
@@ -28,8 +29,13 @@ func test_c_buf(size int) unsafe.Pointer {
 	return C.malloc(C.ulong(size))
 }
 
+func test_free(p unsafe.Pointer) {
+	C.free(p)
+}
+
 func test_GoString(x unsafe.Pointer, size int) string {
-	return C.GoString((*C.char)(x))
+	ret := C.GoBytes(x, C.int(size))
+	return string(ret)
 }
 
 //export go_fillrandom
@@ -45,9 +51,9 @@ func go_fillrandom(context unsafe.Pointer, outptr unsafe.Pointer, outsz C.size_t
 	}
 	p := uintptr(outptr)
 	for i := 0; i < int(outsz); {
-		(*(*uint32)(unsafe.Pointer(p))) = uint32(buf[i])
-		p += 4
-		i += 4
+		(*(*uint8)(unsafe.Pointer(p))) = uint8(buf[i])
+		p += 1
+		i += 1
 	}
 }
 

@@ -28,8 +28,8 @@ func test_c_buf(size int) unsafe.Pointer {
 	return C.malloc(C.ulong(size))
 }
 
-func test_GoString(x unsafe.Pointer) string {
-	return *(*string)(x)
+func test_GoString(x unsafe.Pointer, size int) string {
+	return C.GoString((*C.char)(x))
 }
 
 //export go_fillrandom
